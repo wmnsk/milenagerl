@@ -1,0 +1,11 @@
+{application, milenage,
+ [{description, "MILENAGE algorithm implementation for Erlang/OTP"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {env,[]},
+  {modules, []},
+
+  {licenses, ["MIT"]},
+  {links, [{"GitHub","https://github.com/wmnsk/milenagerl"}]}
+ ]}.
