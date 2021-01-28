@@ -2,54 +2,52 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--export([new/6, compute_opc/2, set_opc/3]).
--export([f1/3, f1star/3, f2345/1, f5star/1, compute_all/1]).
+-export([new/6, compute_opc/2, set_opc/3, f1/3, f1star/3, f2345/1, f5star/1, compute_all/1]).
 
--define(validate_new(K, OP, RAND, SQN, AMF), is_binary(K) and is_binary(OP) and is_binary(RAND) and is_integer(SQN) and is_integer(AMF)).
+-define(VALIDATE_NEW(K, OP, RAND, SQN, AMF),
+    is_binary(K) and is_binary(OP) and is_binary(RAND) and is_integer(SQN) and is_integer(AMF)).
 
-% A set of parameters used/generated in MILENAGE algorithm.
+%% A set of parameters used/generated in MILENAGE algorithm.
 -record(milenage,
     {
-        % AK is a 48-bit anonymity key that is the output of either of the functions f5.
+        %% AK is a 48-bit anonymity key that is the output of either of the functions f5.
         ak = <<0:48>>,
-        % AKS is a 48-bit anonymity key that is the output of either of the functions f5*.
+        %% AKS is a 48-bit anonymity key that is the output of either of the functions f5*.
         aks = <<0:48>>,
-        % AMF is a 16-bit authentication management field that is an input to the functions f1 and f1*.
+        %% AMF is a 16-bit authentication management field that is an input to the functions f1 and f1*.
         amf = 16#0000,
-        % CK is a 128-bit confidentiality key that is the output of the function f3.
+        %% CK is a 128-bit confidentiality key that is the output of the function f3.
         ck = <<0:128>>,
-        % IK is a 128-bit integrity key that is the output of the function f4.
+        %% IK is a 128-bit integrity key that is the output of the function f4.
         ik = <<0:128>>,
-        % K is a 128-bit subscriber key that is an input to the functions f1, f1*, f2, f3, f4, f5 and f5*.
+        %% K is a 128-bit subscriber key that is an input to the functions f1, f1*, f2, f3, f4, f5 and f5*.
         k,
-        % MACA is a 64-bit network authentication code that is the output of the function f1.
+        %% MACA is a 64-bit network authentication code that is the output of the function f1.
         mac_a = <<0:64>>,
-        % MACS is a 64-bit resynchronisation authentication code that is the output of the function f1*.
+        %% MACS is a 64-bit resynchronisation authentication code that is the output of the function f1*.
         mac_s = <<0:64>>,
-        % OP is a 128-bit Operator Variant Algorithm Configuration Field that is a component of the
-    	% functions f1, f1*, f2, f3, f4, f5 and f5*.
+        %% OP is a 128-bit Operator Variant Algorithm Configuration Field that is a component of the
+    	%% functions f1, f1*, f2, f3, f4, f5 and f5*.
         op = <<0:128>>,
-        % OPc is a 128-bit value derived from OP and K and used within the computation of the functions.
+        %% OPc is a 128-bit value derived from OP and K and used within the computation of the functions.
         opc = <<0:128>>,
-        % RAND is a 128-bit random challenge that is an input to the functions f1, f1*, f2, f3, f4, f5 and f5*.
+        %% RAND is a 128-bit random challenge that is an input to the functions f1, f1*, f2, f3, f4, f5 and f5*.
         rand,
-        % RES is a 64-bit signed response that is the output of the function f2.
+        %% RES is a 64-bit signed response that is the output of the function f2.
         res = <<0:64>>,
-        % SQN is a 48-bit sequence number that is an input to either of the functions f1 and f1*.
-    	% (For f1* this input is more precisely called SQNMS.)
+        %% SQN is a 48-bit sequence number that is an input to either of the functions f1 and f1*.
+    	%% (For f1* this input is more precisely called SQNMS.)
         sqn
     }).
 
 %% Initializes MILENAGE with OP or OPc.
-new(op, K, OP, RAND, SQN, AMF)
-    when ?validate_new(K, OP, RAND, SQN, AMF) ->
-    M = #milenage {k = K, op = OP, rand = RAND, sqn = SQN, amf = AMF},
+new(op, K, OP, RAND, SQN, AMF) when ?VALIDATE_NEW(K, OP, RAND, SQN, AMF) ->
+    M = #milenage{k = K, op = OP, rand = RAND, sqn = SQN, amf = AMF},
     set_opc(M, K, OP);
-new(opc, K, OPc, RAND, SQN, AMF)
-    when ?validate_new(K, OPc, RAND, SQN, AMF) ->
-    #milenage {k = K, opc = OPc, rand = RAND, sqn = SQN, amf = AMF};
+new(opc, K, OPc, RAND, SQN, AMF) when ?VALIDATE_NEW(K, OPc, RAND, SQN, AMF) ->
+    #milenage{k = K, opc = OPc, rand = RAND, sqn = SQN, amf = AMF};
 new(_, _, _, _, _, _) ->
-    #milenage {}.
+    #milenage{}.
 
 %% Performs f1 which is the network authentication function that computes network
 %% authentication code MAC-A from key K, random challenge RAND, sequence number 
@@ -70,12 +68,12 @@ f1star(M, SQN, AMF) ->
 
 %% Performs the calcurations that are common in f1/1 and f1star/1.
 f1base(M, SQN, AMF) ->
-    K = M #milenage.k,
-    OPc = M #milenage.opc,
+    K = M#milenage.k,
+    OPc = M#milenage.opc,
 
     <<Rx8F:64, Rx07:64>> = crypto:exor(<<SQN:48, AMF:16, SQN:48, AMF:16>>, OPc),
 
-    T = encrypt(K, crypto:exor(M #milenage.rand, OPc)),
+    T = encrypt(K, crypto:exor(M#milenage.rand, OPc)),
     O = encrypt(K, crypto:exor(<<Rx07:64, Rx8F:64>>, T)),
     crypto:exor(O, OPc).
 
@@ -83,10 +81,10 @@ f1base(M, SQN, AMF) ->
 %% challenge RAND, and returns response RES, confidentiality key CK, integrity key
 %% IK and anonymity key AK.
 f2345(M) ->
-    K = M #milenage.k,
-    OPc = M #milenage.opc,
+    K = M#milenage.k,
+    OPc = M#milenage.opc,
 
-    Temp = encrypt(K, crypto:exor(M #milenage.rand, OPc)),
+    Temp = encrypt(K, crypto:exor(M#milenage.rand, OPc)),
     R1 = crypto:exor(Temp, OPc),
     <<_:120, R1x:8>> = R1,
     X1 = R1x bxor 1,
@@ -110,10 +108,10 @@ f2345(M) ->
 %% re-synchronisation message. It takes key K and random challenge RAND, and
 %% returns resynch anonymity key AK.
 f5star(M) ->
-    K = M #milenage.k,
-    OPc = M #milenage.opc,
+    K = M#milenage.k,
+    OPc = M#milenage.opc,
 
-    Temp = encrypt(K, crypto:exor(M #milenage.rand, OPc)),
+    Temp = encrypt(K, crypto:exor(M#milenage.rand, OPc)),
     <<Rx4F:96, Rx03:32>> = crypto:exor(Temp, OPc),
     R = <<Rx03:32, Rx4F:96>>,
     <<_:120, Rx:8>> = R,
@@ -124,11 +122,11 @@ f5star(M) ->
 %% Performs all the milenage functions and returns the milenage record
 %% with the computed values set.
 compute_all(M) ->
-    MACA = f1(M, M #milenage.sqn, M #milenage.amf),
-    MACS = f1star(M, M #milenage.sqn, 0),
+    MACA = f1(M, M#milenage.sqn, M#milenage.amf),
+    MACS = f1star(M, M#milenage.sqn, 0),
     {RES, CK, IK, AK} = f2345(M),
     AKS = f5star(M),
-    M #milenage{mac_a=MACA, mac_s=MACS, res=RES, ck=CK, ik=IK, ak=AK, aks=AKS}.
+    M#milenage{mac_a=MACA, mac_s=MACS, res=RES, ck=CK, ik=IK, ak=AK, aks=AKS}.
 
 %% Computes OPc value from K and OP.
 compute_opc(K, OP) ->
@@ -138,7 +136,7 @@ compute_opc(K, OP) ->
 %% with 'op' as the first parameter.
 set_opc(M, K, OP) ->
     OPC = compute_opc(K, OP),
-    M #milenage {opc=OPC}.
+    M#milenage{opc=OPC}.
 
 %% Performs AES/128/ECB encryption with the key and text given as binary.
 encrypt(Key, Plain) ->
@@ -163,29 +161,29 @@ encrypt(Key, Plain) ->
 new_test() ->
     [
         ?assertEqual(new(op, ?K, ?OP, <<0:128>>, ?SQN, ?AMF),
-            #milenage {
+            #milenage{
                 ak = <<0:48>>, aks = <<0:48>>, amf=16#8000, ck = <<0:128>>,
                 ik = <<0:128>>, k = ?K, mac_a = <<0:64>>, mac_s = <<0:64>>,
                 op = ?OP, opc = ?OPc, rand = <<0:128>>, res = <<0:64>>,
                 sqn = 1
             }),
         ?assertEqual(new(opc, ?K, ?OPc, <<0:128>>, ?SQN, ?AMF),
-            #milenage {
+            #milenage{
                 ak = <<0:48>>, aks = <<0:48>>, amf=16#8000, ck = <<0:128>>,
                 ik = <<0:128>>, k = ?K, mac_a = <<0:64>>, mac_s = <<0:64>>,
                 op = <<0:128>>, opc = ?OPc, rand = <<0:128>>, res = <<0:64>>,
                 sqn = 1
             }),
-       ?assertEqual(new(op, 1, ?OP, <<0:128>>, ?SQN, ?AMF), #milenage {}), % Unexpected K
-       ?assertEqual(new(op, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage {}), % Unexpected OP
-       ?assertEqual(new(op, ?K, ?OP, 1, ?SQN, ?AMF), #milenage {}), % Unexpected RAND
-       ?assertEqual(new(op, ?K, ?OP, 1, <<0:128>>, 16#8000), #milenage {}), % Unexpected SQN
-       ?assertEqual(new(op, ?K, ?OP, 1, 1, <<0:128>>), #milenage {}), % Unexpected AMF
-       ?assertEqual(new(opc, 1, ?OPc, <<0:128>>, ?SQN, ?AMF), #milenage {}), % Unexpected K
-       ?assertEqual(new(opc, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage {}), % Unexpected OPc
-       ?assertEqual(new(opc, ?K, ?OPc, 1, ?SQN, ?AMF), #milenage {}), % Unexpected RAND
-       ?assertEqual(new(opc, ?K, ?OPc, 1, <<0:128>>, 16#8000), #milenage {}), % Unexpected SQN
-       ?assertEqual(new(opc, ?K, ?OPc, 1, 1, <<0:128>>), #milenage {}) % Unexpected AMF
+       ?assertEqual(new(op, 1, ?OP, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected K
+       ?assertEqual(new(op, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected OP
+       ?assertEqual(new(op, ?K, ?OP, 1, ?SQN, ?AMF), #milenage{}), % Unexpected RAND
+       ?assertEqual(new(op, ?K, ?OP, 1, <<0:128>>, 16#8000), #milenage{}), % Unexpected SQN
+       ?assertEqual(new(op, ?K, ?OP, 1, 1, <<0:128>>), #milenage{}), % Unexpected AMF
+       ?assertEqual(new(opc, 1, ?OPc, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected K
+       ?assertEqual(new(opc, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected OPc
+       ?assertEqual(new(opc, ?K, ?OPc, 1, ?SQN, ?AMF), #milenage{}), % Unexpected RAND
+       ?assertEqual(new(opc, ?K, ?OPc, 1, <<0:128>>, 16#8000), #milenage{}), % Unexpected SQN
+       ?assertEqual(new(opc, ?K, ?OPc, 1, 1, <<0:128>>), #milenage{}) % Unexpected AMF
     ].
 
 compute_opc_test() ->
