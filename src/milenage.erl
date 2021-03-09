@@ -2,7 +2,10 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--export([new/6, compute_opc/2, set_opc/3, f1/3, f1star/3, f2345/1, f5star/1, compute_all/1]).
+-export([
+    new/6, compute_opc/2, set_opc/3, compute_all/1,
+    f1/3, f1star/3, f2345/1, f5star/1, compute_res_star/3
+]).
 
 -define(VALIDATE_NEW(K, OP, RAND, SQN, AMF),
     is_binary(K) and is_binary(OP) and is_binary(RAND) and is_integer(SQN) and is_integer(AMF)).
@@ -35,6 +38,8 @@
         rand,
         %% RES is a 64-bit signed response that is the output of the function f2.
         res = <<0:64>>,
+        %% RES_STAR or RES* is a 128-bit response that is used in 5G.
+        res_star = <<0:128>>,
         %% SQN is a 48-bit sequence number that is an input to either of the functions f1 and f1*.
     	%% (For f1* this input is more precisely called SQNMS.)
         sqn
@@ -67,24 +72,17 @@ f1star(M, SQN, AMF) ->
     <<MACS:64>>.
 
 %% Performs the calcurations that are common in f1/1 and f1star/1.
-f1base(M, SQN, AMF) ->
-    K = M#milenage.k,
-    OPc = M#milenage.opc,
-
+f1base(#milenage{k = K, opc = OPc, rand = RAND}, SQN, AMF) ->
     <<Rx8F:64, Rx07:64>> = crypto:exor(<<SQN:48, AMF:16, SQN:48, AMF:16>>, OPc),
-
-    T = encrypt(K, crypto:exor(M#milenage.rand, OPc)),
+    T = encrypt(K, crypto:exor(RAND, OPc)),
     O = encrypt(K, crypto:exor(<<Rx07:64, Rx8F:64>>, T)),
     crypto:exor(O, OPc).
 
 %% Performas the functions f2, f3, f4, f5 at a time which take key K and random
 %% challenge RAND, and returns response RES, confidentiality key CK, integrity key
 %% IK and anonymity key AK.
-f2345(M) ->
-    K = M#milenage.k,
-    OPc = M#milenage.opc,
-
-    Temp = encrypt(K, crypto:exor(M#milenage.rand, OPc)),
+f2345(#milenage{k = K, opc = OPc, rand = RAND}) ->
+    Temp = encrypt(K, crypto:exor(RAND, OPc)),
     R1 = crypto:exor(Temp, OPc),
     <<_:120, R1x:8>> = R1,
     X1 = R1x bxor 1,
@@ -107,11 +105,8 @@ f2345(M) ->
 %% Performs f5 star which is the anonymity key derivation function for the
 %% re-synchronisation message. It takes key K and random challenge RAND, and
 %% returns resynch anonymity key AK.
-f5star(M) ->
-    K = M#milenage.k,
-    OPc = M#milenage.opc,
-
-    Temp = encrypt(K, crypto:exor(M#milenage.rand, OPc)),
+f5star(#milenage{k = K, opc = OPc, rand = RAND}) ->
+    Temp = encrypt(K, crypto:exor(RAND, OPc)),
     <<Rx4F:96, Rx03:32>> = crypto:exor(Temp, OPc),
     R = <<Rx03:32, Rx4F:96>>,
     <<_:120, Rx:8>> = R,
@@ -121,12 +116,27 @@ f5star(M) ->
 
 %% Performs all the milenage functions and returns the milenage record
 %% with the computed values set.
-compute_all(M) ->
-    MACA = f1(M, M#milenage.sqn, M#milenage.amf),
-    MACS = f1star(M, M#milenage.sqn, 0),
+compute_all(#milenage{sqn = SQN, amf = AMF} = M) ->
+    MACA = f1(M, SQN, AMF),
+    MACS = f1star(M, SQN, 0),
     {RES, CK, IK, AK} = f2345(M),
     AKS = f5star(M),
-    M#milenage{mac_a=MACA, mac_s=MACS, res=RES, ck=CK, ik=IK, ak=AK, aks=AKS}.
+    M#milenage{mac_a = MACA, mac_s = MACS, res = RES, ck = CK, ik = IK, ak = AK, aks = AKS}.
+
+%% Performs RES* derivation function which is defined in A.4 RES* and XRES*
+%% derivation function, TS 33.501.
+compute_res_star(#milenage{rand = RAND, res = Res, ck = CK, ik = IK}, MCC, MNC) when length(MCC) =:= 3 ->
+    N = case length(MNC) of
+        2 -> "0" ++ MNC;
+        3 -> MNC;
+        _ -> undefined
+    end,
+
+    SNN = list_to_binary(lists:flatten(io_lib:format("5G:mnc~s.mcc~s.3gppnetwork.org", [N, MCC]))),
+    B = <<16#6b, SNN:32/binary, 32:16, RAND:16/binary, 16:16, Res:8/binary, 8:16>>,
+
+    <<_:128, Out/binary>> = crypto:mac(hmac, sha256, <<CK:16/binary, IK:16/binary>>, B),
+    Out.
 
 %% Computes OPc value from K and OP.
 compute_opc(K, OP) ->
@@ -143,19 +153,20 @@ encrypt(Key, Plain) ->
     crypto:crypto_one_time(aes_128_ecb, Key, Plain, [{encrypt, true}, {padding, zero}]).
 
 -ifdef(EUNIT).
--define(AK,   <<16#de, 16#65, 16#6c, 16#8b, 16#0b, 16#ce>>).
--define(AKS,  <<16#b9, 16#ac, 16#50, 16#c4, 16#8a, 16#83>>).
--define(AMF,  16#8000).
--define(CK,   <<16#b3, 16#79, 16#87, 16#4b, 16#3d, 16#18, 16#3d, 16#2a, 16#21, 16#29, 16#1d, 16#43, 16#9e, 16#77, 16#61, 16#e1>>).
--define(IK,   <<16#f4, 16#70, 16#6f, 16#66, 16#62, 16#9c, 16#f7, 16#dd, 16#f8, 16#81, 16#d8, 16#00, 16#25, 16#bf, 16#12, 16#55>>).
--define(K,    <<16#00, 16#11, 16#22, 16#33, 16#44, 16#55, 16#66, 16#77, 16#88, 16#99, 16#aa, 16#bb, 16#cc, 16#dd, 16#ee, 16#ff>>).
--define(MACA, <<16#4a, 16#f3, 16#0b, 16#82, 16#a8, 16#53, 16#11, 16#15>>).
--define(MACS, <<16#cd, 16#f7, 16#46, 16#73, 16#bc, 16#86, 16#e7, 16#ab>>).
--define(OP,   <<16#00, 16#11, 16#22, 16#33, 16#44, 16#55, 16#66, 16#77, 16#88, 16#99, 16#aa, 16#bb, 16#cc, 16#dd, 16#ee, 16#ff>>).
--define(OPc,  <<16#62, 16#e7, 16#5b, 16#8d, 16#6f, 16#a5, 16#bf, 16#46, 16#ec, 16#87, 16#a9, 16#27, 16#6f, 16#9d, 16#f5, 16#4d>>).
--define(RAND, <<16#00, 16#11, 16#22, 16#33, 16#44, 16#55, 16#66, 16#77, 16#88, 16#99, 16#aa, 16#bb, 16#cc, 16#dd, 16#ee, 16#ff>>).
--define(RES,  <<16#70, 16#0e, 16#b2, 16#30, 16#0b, 16#2c, 16#47, 16#99>>).
--define(SQN,  1).
+-define(AK,       <<16#de, 16#65, 16#6c, 16#8b, 16#0b, 16#ce>>).
+-define(AKS,      <<16#b9, 16#ac, 16#50, 16#c4, 16#8a, 16#83>>).
+-define(AMF,      16#8000).
+-define(CK,       <<16#b3, 16#79, 16#87, 16#4b, 16#3d, 16#18, 16#3d, 16#2a, 16#21, 16#29, 16#1d, 16#43, 16#9e, 16#77, 16#61, 16#e1>>).
+-define(IK,       <<16#f4, 16#70, 16#6f, 16#66, 16#62, 16#9c, 16#f7, 16#dd, 16#f8, 16#81, 16#d8, 16#00, 16#25, 16#bf, 16#12, 16#55>>).
+-define(K,        <<16#00, 16#11, 16#22, 16#33, 16#44, 16#55, 16#66, 16#77, 16#88, 16#99, 16#aa, 16#bb, 16#cc, 16#dd, 16#ee, 16#ff>>).
+-define(MACA,     <<16#4a, 16#f3, 16#0b, 16#82, 16#a8, 16#53, 16#11, 16#15>>).
+-define(MACS,     <<16#cd, 16#f7, 16#46, 16#73, 16#bc, 16#86, 16#e7, 16#ab>>).
+-define(OP,       <<16#00, 16#11, 16#22, 16#33, 16#44, 16#55, 16#66, 16#77, 16#88, 16#99, 16#aa, 16#bb, 16#cc, 16#dd, 16#ee, 16#ff>>).
+-define(OPc,      <<16#62, 16#e7, 16#5b, 16#8d, 16#6f, 16#a5, 16#bf, 16#46, 16#ec, 16#87, 16#a9, 16#27, 16#6f, 16#9d, 16#f5, 16#4d>>).
+-define(RAND,     <<16#00, 16#11, 16#22, 16#33, 16#44, 16#55, 16#66, 16#77, 16#88, 16#99, 16#aa, 16#bb, 16#cc, 16#dd, 16#ee, 16#ff>>).
+-define(RES,      <<16#70, 16#0e, 16#b2, 16#30, 16#0b, 16#2c, 16#47, 16#99>>).
+-define(RES_STAR, <<16#31, 16#b6, 16#d9, 16#38, 16#a5, 16#29, 16#0c, 16#cc, 16#65, 16#bc, 16#82, 16#9f, 16#98, 16#20, 16#a8, 16#d9>>).
+-define(SQN,      1).
 -endif.
 
 new_test() ->
@@ -165,14 +176,14 @@ new_test() ->
                 ak = <<0:48>>, aks = <<0:48>>, amf=16#8000, ck = <<0:128>>,
                 ik = <<0:128>>, k = ?K, mac_a = <<0:64>>, mac_s = <<0:64>>,
                 op = ?OP, opc = ?OPc, rand = <<0:128>>, res = <<0:64>>,
-                sqn = 1
+                res_star = <<0:128>>, sqn = 1
             }),
         ?assertEqual(new(opc, ?K, ?OPc, <<0:128>>, ?SQN, ?AMF),
             #milenage{
                 ak = <<0:48>>, aks = <<0:48>>, amf=16#8000, ck = <<0:128>>,
                 ik = <<0:128>>, k = ?K, mac_a = <<0:64>>, mac_s = <<0:64>>,
                 op = <<0:128>>, opc = ?OPc, rand = <<0:128>>, res = <<0:64>>,
-                sqn = 1
+                res_star = <<0:128>>, sqn = 1
             }),
        ?assertEqual(new(op, 1, ?OP, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected K
        ?assertEqual(new(op, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected OP
@@ -227,7 +238,17 @@ compute_all_test() ->
                 opc = ?OPc,
                 rand = ?RAND,
                 res = ?RES,
+                res_star = <<0:128>>,
                 sqn = 1
             }
         )
+    ].
+
+compute_res_star_test() ->
+    [
+        ?assertEqual(
+            compute_res_star(
+                compute_all(new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)),
+                "001", "01"),
+            ?RES_STAR)
     ].

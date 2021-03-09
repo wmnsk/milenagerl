@@ -4,10 +4,6 @@
 
 A MILENAGE algorithm implementation in Erlang/OTP.
 
-# Disclaimer
-
-This project is still WIP.
-
 # Usage
 
 ```erlang
@@ -25,6 +21,9 @@ Mil = milenage:new(
 MACA = milenage:f1(Mil, 1, 16#8000)
 {RES, CK, IK, AK} = milenage:f2345(Mil)
 
+% Retrieve 5G RES* by compute_res_star().
+RESStar = milenage:compute_res_star(Mil, "001", "01")
+
 % This returns a new #milenage with all the possible values set.
 Mil2 = milenage:compute_all(M)
 AK = Mil2 #milenage.ak
@@ -38,7 +37,5 @@ rebar3 compile
 
 # TODOs
 
-- [ ] Error handling
-- [ ] Better coding style/formatting
+- [ ] Validations
 - [ ] CI tests
-- [ ] Documentation
