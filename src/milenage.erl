@@ -2,7 +2,10 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--export([new/6, compute_opc/2, set_opc/3, f1/3, f1star/3, f2345/1, f5star/1, compute_all/1]).
+-export([
+    new/6, compute_opc/2, set_opc/3, compute_all/1,
+    f1/3, f1star/3, f2345/1, f5star/1, compute_res_star/3
+]).
 
 -define(VALIDATE_NEW(K, OP, RAND, SQN, AMF),
     is_binary(K) and is_binary(OP) and is_binary(RAND) and is_integer(SQN) and is_integer(AMF)).
@@ -130,6 +133,21 @@ compute_all(M) ->
     AKS = f5star(M),
     M#milenage{mac_a=MACA, mac_s=MACS, res=RES, ck=CK, ik=IK, ak=AK, aks=AKS}.
 
+%% Performs RES* derivation function which is defined in A.4 RES* and XRES*
+%% derivation function, TS 33.501.
+compute_res_star(#milenage{rand = Rand, res = Res, ck = CK, ik = IK}, MCC, MNC) when length(MCC) =:= 3 ->
+    N = case length(MNC) of
+        2 -> "0" ++ MNC;
+        3 -> MNC;
+        _ -> undefined
+    end,
+
+    SNN = list_to_binary(lists:flatten(io_lib:format("5G:mnc~s.mcc~s.3gppnetwork.org", [N, MCC]))),
+    B = <<16#6b, SNN:32/binary, 32:16, Rand:16/binary, 16:16, Res:8/binary, 8:16>>,
+
+    <<_:128, Out/binary>> = crypto:mac(hmac, sha256, <<CK:16/binary, IK:16/binary>>, B),
+    Out.
+
 %% Computes OPc value from K and OP.
 compute_opc(K, OP) ->
     crypto:exor(encrypt(K, K), OP).
@@ -230,8 +248,17 @@ compute_all_test() ->
                 opc = ?OPc,
                 rand = ?RAND,
                 res = ?RES,
-                res_star = ?RES_STAR,
+                res_star = <<0:128>>,
                 sqn = 1
             }
         )
+    ].
+
+compute_res_star_test() ->
+    [
+        ?assertEqual(
+            compute_res_star(
+                compute_all(new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)),
+                "001", "01"),
+            ?RES_STAR)
     ].
