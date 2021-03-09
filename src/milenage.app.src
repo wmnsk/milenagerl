@@ -1,6 +1,6 @@
 {application, milenage,
  [{description, "MILENAGE algorithm implementation for Erlang/OTP"},
-  {vsn, "0.0.1"},
+  {vsn, "0.1.0"},
   {registered, []},
   {applications, [kernel, stdlib]},
   {env,[]},
