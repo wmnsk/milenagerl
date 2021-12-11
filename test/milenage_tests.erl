@@ -18,62 +18,62 @@
 -define(RES_STAR, <<16#31, 16#b6, 16#d9, 16#38, 16#a5, 16#29, 16#0c, 16#cc, 16#65, 16#bc, 16#82, 16#9f, 16#98, 16#20, 16#a8, 16#d9>>).
 -define(SQN,      1).
 
-new_test() ->
+new_test_() ->
     [
-        ?assertEqual(milenage:new(op, ?K, ?OP, <<0:128>>, ?SQN, ?AMF),
+        ?_assertEqual(milenage:new(op, ?K, ?OP, <<0:128>>, ?SQN, ?AMF),
                      #milenage{
                          ak = <<0:48>>, aks = <<0:48>>, amf=16#8000, ck = <<0:128>>,
                          ik = <<0:128>>, k = ?K, mac_a = <<0:64>>, mac_s = <<0:64>>,
                          op = ?OP, opc = ?OPc, rand = <<0:128>>, res = <<0:64>>,
                          res_star = <<0:128>>, sqn = 1
                     }),
-        ?assertEqual(milenage:new(opc, ?K, ?OPc, <<0:128>>, ?SQN, ?AMF),
+        ?_assertEqual(milenage:new(opc, ?K, ?OPc, <<0:128>>, ?SQN, ?AMF),
                      #milenage{
                          ak = <<0:48>>, aks = <<0:48>>, amf=16#8000, ck = <<0:128>>,
                          ik = <<0:128>>, k = ?K, mac_a = <<0:64>>, mac_s = <<0:64>>,
                          op = <<0:128>>, opc = ?OPc, rand = <<0:128>>, res = <<0:64>>,
                          res_star = <<0:128>>, sqn = 1
                     }),
-       ?assertEqual(milenage:new(op, 1, ?OP, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected K
-       ?assertEqual(milenage:new(op, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected OP
-       ?assertEqual(milenage:new(op, ?K, ?OP, 1, ?SQN, ?AMF), #milenage{}), % Unexpected RAND
-       ?assertEqual(milenage:new(op, ?K, ?OP, 1, <<0:128>>, 16#8000), #milenage{}), % Unexpected SQN
-       ?assertEqual(milenage:new(op, ?K, ?OP, 1, 1, <<0:128>>), #milenage{}), % Unexpected AMF
-       ?assertEqual(milenage:new(opc, 1, ?OPc, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected K
-       ?assertEqual(milenage:new(opc, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected OPc
-       ?assertEqual(milenage:new(opc, ?K, ?OPc, 1, ?SQN, ?AMF), #milenage{}), % Unexpected RAND
-       ?assertEqual(milenage:new(opc, ?K, ?OPc, 1, <<0:128>>, 16#8000), #milenage{}), % Unexpected SQN
-       ?assertEqual(milenage:new(opc, ?K, ?OPc, 1, 1, <<0:128>>), #milenage{}) % Unexpected AMF
+       ?_assertEqual(milenage:new(op, 1, ?OP, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected K
+       ?_assertEqual(milenage:new(op, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected OP
+       ?_assertEqual(milenage:new(op, ?K, ?OP, 1, ?SQN, ?AMF), #milenage{}), % Unexpected RAND
+       ?_assertEqual(milenage:new(op, ?K, ?OP, 1, <<0:128>>, 16#8000), #milenage{}), % Unexpected SQN
+       ?_assertEqual(milenage:new(op, ?K, ?OP, 1, 1, <<0:128>>), #milenage{}), % Unexpected AMF
+       ?_assertEqual(milenage:new(opc, 1, ?OPc, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected K
+       ?_assertEqual(milenage:new(opc, ?K, 1, <<0:128>>, ?SQN, ?AMF), #milenage{}), % Unexpected OPc
+       ?_assertEqual(milenage:new(opc, ?K, ?OPc, 1, ?SQN, ?AMF), #milenage{}), % Unexpected RAND
+       ?_assertEqual(milenage:new(opc, ?K, ?OPc, 1, <<0:128>>, 16#8000), #milenage{}), % Unexpected SQN
+       ?_assertEqual(milenage:new(opc, ?K, ?OPc, 1, 1, <<0:128>>), #milenage{}) % Unexpected AMF
     ].
 
-compute_opc_test() ->
+compute_opc_test_() ->
     [
-        ?assertEqual(milenage:compute_opc(?K, ?OP), ?OPc)
+        ?_assertEqual(milenage:compute_opc(?K, ?OP), ?OPc)
     ].
 
-f1_test() ->
+f1_test_() ->
     [
-        ?assertEqual(milenage:f1(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF), ?SQN, ?AMF), ?MACA)
+        ?_assertEqual(milenage:f1(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF), ?SQN, ?AMF), ?MACA)
     ].
 
-f1star_test() ->
+f1star_test_() ->
     [ % TS 33.102 6.3.3: AMF should be zero when computing f1star.
-        ?assertEqual(milenage:f1star(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF), ?SQN, 0), ?MACS)
+        ?_assertEqual(milenage:f1star(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF), ?SQN, 0), ?MACS)
     ].
 
-f2345_test() ->
+f2345_test_() ->
     [
-        ?assertEqual(milenage:f2345(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)), {?RES, ?CK, ?IK, ?AK})
+        ?_assertEqual(milenage:f2345(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)), {?RES, ?CK, ?IK, ?AK})
     ].
 
-f5star_test() ->
+f5star_test_() ->
     [
-        ?assertEqual(milenage:f5star(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)), ?AKS)
+        ?_assertEqual(milenage:f5star(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)), ?AKS)
     ].
 
-compute_all_test() ->
+compute_all_test_() ->
     [
-        ?assertEqual(milenage:compute_all(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)),
+        ?_assertEqual(milenage:compute_all(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)),
             #milenage{
                 ak = ?AK,
                 aks = ?AKS,
@@ -93,9 +93,9 @@ compute_all_test() ->
         )
     ].
 
-compute_res_star_test() ->
+compute_res_star_test_() ->
     [
-        ?assertEqual(
+        ?_assertEqual(
             milenage:compute_res_star(
                 milenage:compute_all(milenage:new(op, ?K, ?OP, ?RAND, ?SQN, ?AMF)),
                 "001", "01"),
