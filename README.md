@@ -1,8 +1,8 @@
 # milenage
 
-[![Hex.pm version](https://img.shields.io/hexpm/v/milenage.svg)](https://hex.pm/packages/milenage)
-
 A MILENAGE algorithm implementation in Erlang/OTP.
+
+[![Hex.pm version](https://img.shields.io/hexpm/v/milenage.svg)](https://hex.pm/packages/milenage)
 
 # Usage
 
@@ -34,8 +34,3 @@ AK = Mil2 #milenage.ak
 ```
 rebar3 compile
 ```
-
-# TODOs
-
-- [ ] Validations
-- [ ] CI tests
