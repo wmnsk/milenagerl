@@ -140,7 +140,7 @@ compute_res_star(#milenage{rand = RAND, res = Res, ck = CK, ik = IK}, MCC, MNC) 
 
 %% Computes OPc value from K and OP.
 compute_opc(K, OP) ->
-    crypto:exor(encrypt(K, K), OP).
+    crypto:exor(encrypt(OP, K), OP).
 
 %% Returns milenage with OPc set. This is called automatically when using new/6
 %% with 'op' as the first parameter.
