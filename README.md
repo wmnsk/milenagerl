@@ -3,6 +3,7 @@
 A MILENAGE algorithm implementation in Erlang/OTP.
 
 [![Hex.pm version](https://img.shields.io/hexpm/v/milenage.svg)](https://hex.pm/packages/milenage)
+![CI status](https://github.com/wmnsk/milenage/actions/workflows/test.yml/badge.svg)
 
 # Usage
 
